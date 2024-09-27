@@ -1,0 +1,4 @@
+.env
+locale/
+text.py
+aiobot/
