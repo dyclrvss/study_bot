@@ -3,13 +3,14 @@ from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
 from text import *   
 from db_select import *  
+from db_upload import *
 from dotenv import load_dotenv, find_dotenv
 import os
 from aiogram.dispatcher import FSMContext
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InputFile , ChatActions
+from datetime import datetime
 
 find_dotenv()
 load_dotenv()
@@ -21,6 +22,8 @@ dp = Dispatcher(bot , storage= storage)
 class Form(StatesGroup):
     imgNum = State()
     audioNum = State()
+    image = State()
+    audio = State()
 
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
@@ -134,11 +137,59 @@ async def sendAudioByNum(message: types.Message, state: FSMContext):
 
 @dp.message_handler(commands=['uploadImg'])
 async def uploadImg_command(message: types.Message):
-    await message.reply(uploadImg_text)
+    try:
+        await message.reply(uploadImg_text)
+        await Form.image.set()
+    except Exception as e:
+        print(e)
+
+@dp.message_handler(state=Form.image, content_types=types.ContentType.PHOTO)
+async def uploadImage(message: types.Message, state: FSMContext):
+    try:
+        if not message.photo:
+            await message.answer("Please, send an image in PNG/GIF/JPG format")
+            return
+        img = message.photo[-1].file_id
+        img_info = await bot.get_file(img)
+        img_name = f"photo_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.jpg"
+        await message.answer("Image recieved!")
+        destination = os.path.join(os.curdir, 'locale', 'images', img_name)
+        await bot.download_file(img_info.file_path, destination)
+        await bot.send_chat_action(message.chat.id, ChatActions.TYPING)
+        imgId = FileUpload.uploadFile("image", img_name) 
+        await message.answer(f"Image id is: {imgId}")  
+        await state.finish()  
+    except Exception as e:
+        print(e)
+        await message.answer("An error occurred while processing the image.")
 
 @dp.message_handler(commands=['uploadAudio'])
 async def uploadAudio_command(message: types.Message):
-    await message.reply(uploadAudio_text)
+    try:
+        await message.reply(uploadAudio_text)
+        await Form.audio.set()
+    except Exception as e:
+        print(e)
+
+@dp.message_handler(state=Form.audio, content_types=types.ContentType.AUDIO)
+async def uploadAudio(message: types.Message, state: FSMContext):
+    try:
+        if not message.audio:
+            await message.answer("Please, send an audio in MP3 format")
+            return
+        await message.answer("Audio recieved!")
+        audio = message.audio.file_id
+        audio_info = await bot.get_file(audio)
+        audio_name = message.audio.file_name if message.audio.file_name else f"audio_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.mp3"
+        destination = os.path.join(os.curdir, 'locale', 'audios', audio_name)
+        await bot.download_file(audio_info.file_path, destination)
+        await bot.send_chat_action(message.chat.id, ChatActions.TYPING)
+        audioId = FileUpload.uploadFile("audio", audio_name) 
+        await message.answer(f"Audio id is: {audioId}")  
+        await state.finish()  
+    except Exception as e:
+        print(e)
+        await message.answer("An error occurred while processing the audio.")
 
 if __name__ == '__main__':
     executor.start_polling(dp)

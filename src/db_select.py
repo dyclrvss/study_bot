@@ -60,3 +60,15 @@ class FileSelect:
             print(e)
 
     
+class FileUpload:
+    def uploadFile(filetype , filelink):
+        cursor , connection = db_connect()
+        try:
+            cursor = connection.cursor()
+            connection.commit()
+            cursor.execute(f"""INSERT INRO {filetype}s({filetype}Id) VALUES({filelink})""")
+            cursor.execute(f"""SELECT {filetype}s.{filetype}Id FROM {filetype}s WHERE {filetype}s.{filetype}Link = '{filelink}'""")
+            num = (cursor.fetchall())[0][0]
+            return num
+        except Exception as e:
+            print(e)
